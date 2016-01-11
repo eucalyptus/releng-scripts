@@ -80,6 +80,9 @@ class Distro(object):
         This method will attempt to use hard links where possible.
         """
         dests = self.__find_dests_for_package(path)
+        if dests:
+            if signer:
+                signer.sign_rpm(path)
         for dest in dests:
             try:
                 os.link(path, dest)
@@ -113,6 +116,87 @@ def get_rpm_headers(filename):
     return headers
 
 
+class GPGKeyFileContextManager(object):
+    """
+    A context manager that uses a file containing a private key to
+    create a temporary keystore
+    """
+    def __init__(self, privkey_filename):
+        self.privkey_filename = privkey_filename
+        self.__previous_gnupghome = None
+        self.__tempdir = None
+        with self:
+            popen = subprocess.Popen(
+                ('gpg', '--list-secret-keys', '--with-colons'),
+                stdout=subprocess.PIPE)
+            line = popen.stdout.readline()
+            popen.communicate()
+            self.key_id = line.split(':')[4]
+
+    def __enter__(self):
+        try:
+            self.__tempdir = tempfile.mkdtemp()
+            self.__previous_gnupghome = os.environ.get('GNUPGHOME')
+            os.environ['GNUPGHOME'] = self.__tempdir
+            with open(os.devnull) as devnull:
+                subprocess.check_call(('gpg', '-q', '--batch', '--import',
+                                       self.privkey_filename), stdin=devnull)
+        except:
+            self.__exit__(*sys.exc_info())
+            raise
+        return self
+
+    def __exit__(self, exc_type, exc_val, trace):
+        if self.__tempdir:
+            shutil.rmtree(self.__tempdir)
+            self.__tempdir = None
+        if self.__previous_gnupghome:
+            os.environ['GNUPGHOME'] = self.__previous_gnupghome
+            self.__previous_gnupghome
+        else:
+            del os.environ['GNUPGHOME']
+
+
+class GPGKeyIdContextManager(object):
+    """
+    A context manager that refers to a key that is already available
+    to the system
+    """
+    def __init__(self, key_id):
+        self.key_id = key_id
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, trace):
+        pass
+
+
+class GPGSigner(object):
+    def __init__(self, contextmgr, password=''):
+        self.contextmgr = contextmgr
+        self.password = password
+
+    def sign_rpm(self, path):
+        import pty
+        with self.contextmgr:
+            master, slave = pty.openpty()
+            cmd = ('rpmsign', '--resign', '-D',
+                   '_gpg_name {0}'.format(self.contextmgr.key_id), path),
+            popen = subprocess.Popen(cmd, close_fds=True, stdin=slave)
+            os.close(slave)
+            os.write(master, self.password)
+            os.close(master)
+            if popen.wait() != 0:
+                raise subprocess.CalledProcessError(popen.returncode, cmd)
+
+    def create_detached_signature(self, path):
+        with self.contextmgr:
+            subprocess.check_call(
+                ('gpg', '-q', '--batch', '-u', self.contextmgr.key_id,
+                 '--detach-sign', '--armor', path))
+
+
 def find_packages(path):
     if os.path.isfile(path):
         yield path
@@ -136,6 +220,7 @@ def main():
                         help=('combination of dist tag, destination file '
                               'path(s), and architecture(s) to sort packages '
                               'into'))
+    parser.add_argument('-s', '--sign', metavar='KEY:PASSWORD')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='show where packages were stored')
     parser.add_argument('--skip-debuginfo', action='store_true',
