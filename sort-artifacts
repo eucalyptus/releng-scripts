@@ -1,6 +1,7 @@
 #!/usr/bin/python -tt
 
 import argparse
+import atexit
 import os.path
 import pprint
 import shutil
@@ -175,16 +176,21 @@ class GPGKeyIdContextManager(object):
         pass
 
 
-## TODO:  make this return the path of the .asc or signed .rpm file
+## TODO:  make this return the path of the .asc
 class GPGSigner(object):
     def __init__(self, contextmgr, password=''):
         self.contextmgr = contextmgr
         self.password = password
+        self.__tempdir = tempfile.mkdtemp()
+        atexit.register(self.__remove_tempdir)
 
     def sign_rpm(self, path):
+        filename = os.path.basename(path)
+        dest = os.path.join(self.__tempdir, filename)
+        shutil.copy2(path, dest)
         with self.contextmgr:
             args = ['--resign', '-D',
-                   '_gpg_name {0}'.format(self.contextmgr.key_id), path]
+                   '_gpg_name {0}'.format(self.contextmgr.key_id), dest]
             try:
                 child = pexpect.spawn('rpmsign', args)
                 child.expect('Enter pass phrase: ')
@@ -201,12 +207,17 @@ class GPGSigner(object):
                 print "child.status is {0}".format(child.status)
                 raise RuntimeError('rpmsign exited with error {0}'
                                    .format(child.status))
+        return dest
 
     def create_detached_signature(self, path):
         with self.contextmgr:
             subprocess.check_call(
                 ('gpg', '-q', '--batch', '-u', self.contextmgr.key_id,
                  '--detach-sign', '--armor', path))
+
+    def __remove_tempdir(self):
+        if self.__tempdir:
+            shutil.rmtree(self.__tempdir)
 
 
 def find_packages(path):
