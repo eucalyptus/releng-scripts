@@ -6,7 +6,9 @@ import pprint
 import shutil
 import subprocess
 import sys
+import tempfile
 
+import pexpect
 import rpm
 
 
@@ -71,7 +73,7 @@ class Distro(object):
                                               os.path.basename(path)))
         return dests
 
-    def copy_package(self, path):
+    def copy_package(self, path, signer):
         """
         Find all destinations for an rpm package based on its dist tag
         and architecture, then optionally sign it and copy it to the
@@ -79,10 +81,13 @@ class Distro(object):
 
         This method will attempt to use hard links where possible.
         """
+        self.signer = signer
+
         dests = self.__find_dests_for_package(path)
         if dests:
-            if signer:
-                signer.sign_rpm(path)
+            if self.signer:
+                self.signer.sign_rpm(path)
+                #print "signing would have happened here"
         for dest in dests:
             try:
                 os.link(path, dest)
@@ -178,17 +183,25 @@ class GPGSigner(object):
         self.password = password
 
     def sign_rpm(self, path):
-        import pty
         with self.contextmgr:
-            master, slave = pty.openpty()
-            cmd = ('rpmsign', '--resign', '-D',
-                   '_gpg_name {0}'.format(self.contextmgr.key_id), path),
-            popen = subprocess.Popen(cmd, close_fds=True, stdin=slave)
-            os.close(slave)
-            os.write(master, self.password)
-            os.close(master)
-            if popen.wait() != 0:
-                raise subprocess.CalledProcessError(popen.returncode, cmd)
+            args = ['--resign', '-D',
+                   '_gpg_name {0}'.format(self.contextmgr.key_id), path]
+            try:
+                child = pexpect.spawn('rpmsign', args)
+                child.expect('Enter pass phrase: ')
+                child.sendline(self.password)
+                answer = child.expect(['Pass phrase is good\.',
+                                   'Pass phrase check failed'])
+                child.expect(pexpect.EOF)
+                child.close()
+            except pexpect.ExceptionPexpect as exc:
+                msg = str(exc).splitlines()[0]
+                raise RuntimeError(msg)
+            if (not os.WIFEXITED(child.status) or
+                    os.WEXITSTATUS(child.status) != 0 or answer != 0):
+                print "child.status is {0}".format(child.status)
+                raise RuntimeError('rpmsign exited with error {0}'
+                                   .format(child.status))
 
     def create_detached_signature(self, path):
         with self.contextmgr:
@@ -227,6 +240,12 @@ def main():
                         help='skip debuginfo packages')
     args = parser.parse_args()
     distros = []
+    signer = None
+    if args.sign:
+        if ":" in args.sign:
+            signer = GPGSigner(GPGKeyIdContextManager(args.sign.split(':')[0]))
+        else:
+            signer = GPGSigner(GPGKeyFileContextManager(args.sign))
     for package_set in args.package_set:
         disttag, paths, arches = package_set.split(':')
         distros.append(Distro(args.dest, paths.split(','), arches.split(','),
@@ -237,7 +256,7 @@ def main():
         for path in args.paths:
             for package_path in find_packages(path):
                 path_map[package_path] = distro.copy_package(
-                    package_path)
+                    package_path, signer)
     if args.verbose:
         pprint.pprint(path_map)
 
