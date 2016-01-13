@@ -73,7 +73,7 @@ class Distro(object):
                                               os.path.basename(path)))
         return dests
 
-    def copy_package(self, path, signer):
+    def copy_package(self, path, signer=None):
         """
         Find all destinations for an rpm package based on its dist tag
         and architecture, then optionally sign it and copy it to the
@@ -81,13 +81,10 @@ class Distro(object):
 
         This method will attempt to use hard links where possible.
         """
-        self.signer = signer
 
         dests = self.__find_dests_for_package(path)
-        if dests:
-            if self.signer:
-                self.signer.sign_rpm(path)
-                #print "signing would have happened here"
+        if signer:
+            path = signer.sign_rpm(path)
         for dest in dests:
             try:
                 os.link(path, dest)
@@ -105,9 +102,10 @@ class Distro(object):
             shutil.copy2(path, dest)
         return dests
 
-    ## TODO:  signature
-
-    ## TODO:  createrepo
+    def create_repo_md(self):
+        for arch in self.arches:
+            path = os.path.join(self.distpath, arch)
+            subprocess.check_call(('createrepo_c', '--no-database', path))
 
 
 def get_rpm_headers(filename):
@@ -177,6 +175,7 @@ class GPGKeyIdContextManager(object):
         pass
 
 
+## TODO:  make this return the path of the .asc or signed .rpm file
 class GPGSigner(object):
     def __init__(self, contextmgr, password=''):
         self.contextmgr = contextmgr
@@ -257,6 +256,7 @@ def main():
             for package_path in find_packages(path):
                 path_map[package_path] = distro.copy_package(
                     package_path, signer)
+        distro.create_repo_md()
     if args.verbose:
         pprint.pprint(path_map)
 
