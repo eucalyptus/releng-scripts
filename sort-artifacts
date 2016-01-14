@@ -76,14 +76,15 @@ class Distro(object):
         dests = []
         for arch in self.arches:
             archpath = os.path.join(self.distpath, arch)
-            if headers[rpm.RPMTAG_SOURCEPACKAGE]:
-                # Source packages have arches, too, so the check for
-                # that must go first.
-                if arch == 'source':
-                    dests.append(os.path.join(archpath,
-                                              os.path.basename(path)))
-            else:
-                if headers[rpm.RPMTAG_ARCH] in (arch, 'noarch'):
+            if arch == 'source':
+                # Source packages have arches, too, so we need to handle
+                # them specially.  We also don't want to copy noarch
+                # packages into the source package repository.
+                if headers[rpm.RPMTAG_SOURCEPACKAGE]:
+                    if arch == 'source':
+                        dests.append(os.path.join(archpath,
+                                                  os.path.basename(path)))
+            elif headers[rpm.RPMTAG_ARCH] in (arch, 'noarch'):
                     dests.append(os.path.join(archpath,
                                               os.path.basename(path)))
         return dests
