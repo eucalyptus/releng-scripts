@@ -12,6 +12,9 @@ import argparse
 import os
 
 
+PROPERTIES_FILENAME = 'tag-params.properties'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-t', '--tag', required=True)
@@ -25,7 +28,7 @@ def main():
     if not args.build:
         parser.error('argument -b/--build or BUILD_NUMBER is required')
     if 'custom' not in args.tag:
-        with open('tag-params.properties', 'w') as propfile:
+        with open(PROPERTIES_FILENAME, 'w') as propfile:
             propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
                            .format(tag=args.tag, job=args.job,
                                    build=args.build))
