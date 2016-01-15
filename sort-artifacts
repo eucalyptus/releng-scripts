@@ -102,6 +102,8 @@ class Distro(object):
         if signer:
             path = signer.sign_rpm(path)
         for dest in dests:
+            if not os.path.exists(self.distpath):
+                self.create_dirs()
             try:
                 os.link(path, dest)
                 continue
@@ -121,7 +123,8 @@ class Distro(object):
     def create_repo_md(self):
         for arch in self.arches:
             path = os.path.join(self.distpath, arch)
-            subprocess.check_call(('createrepo_c', '--no-database', path))
+            if os.path.isdir(path):
+                subprocess.check_call(('createrepo_c', '--no-database', path))
 
 
 def get_rpm_headers(filename):
@@ -277,7 +280,6 @@ def main():
                               disttag))
     path_map = {}
     for distro in distros:
-        distro.create_dirs()
         for path in args.paths:
             for package_path in find_packages(path):
                 path_map[package_path] = distro.copy_package(
