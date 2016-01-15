@@ -1,0 +1,35 @@
+#!/usr/bin/python -tt
+
+"""
+Write a .properties file containing parameters for p2-tag-build.
+
+This requires the JOB_NAME and BUILD_NUMBER environment variables from
+Jenkins.
+"""
+
+
+import argparse
+import os
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-t', '--tag', required=True)
+    parser.add_argument('-j', '--job', default=os.getenv('JOB_NAME'))
+    parser.add_argument('-b', '--build', default=os.getenv('BUILD_NUMBER'))
+    args = parser.parse_args()
+    if not args.tag:
+        parser.error('argument -t/--tag is required')
+    if not args.job:
+        parser.error('argument -j/--job or JOB_NAME is required')
+    if not args.build:
+        parser.error('argument -b/--build or BUILD_NUMBER is required')
+    if 'custom' not in args.tag:
+        with open('tag-params.properties', 'w') as propfile:
+            propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
+                           .format(tag=args.tag, job=args.job,
+                                   build=args.build))
+
+
+if __name__ == '__main__':
+    main()
