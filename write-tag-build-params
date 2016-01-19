@@ -41,10 +41,17 @@ def main():
         parser.error('argument -j/--job or JOB_NAME is required')
     if not args.build:
         parser.error('argument -b/--build or BUILD_NUMBER is required')
-    if 'custom' not in args.tag:
+
+    if args.tag.endswith('-devel'):
+        tag = args.tag
+    elif args.tag.endswith('-security'):
+        tag = args.tag.rsplit('-', 1)[0]
+    else:
+        tag = None
+    if tag:
         with open(PROPERTIES_FILENAME, 'w') as propfile:
             propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
-                           .format(tag=args.tag, job=args.job,
+                           .format(tag=tag, job=args.job,
                                    build=args.build))
 
 
