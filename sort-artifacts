@@ -120,11 +120,45 @@ class Distro(object):
             shutil.copy2(path, dest)
         return dests
 
-    def create_repo_md(self):
+    def create_repo_md(self, verbose):
         for arch in self.arches:
             path = os.path.join(self.distpath, arch)
             if os.path.isdir(path):
-                subprocess.check_call(('createrepo_c', '--no-database', path))
+                if verbose:
+                    subprocess.check_call(('createrepo_c', '--no-database', path))
+                else:
+                    subprocess.check_call(('createrepo_c', '--no-database', '-q', path))
+
+
+class Tarball(object):
+    """
+    Representation of a tar file
+    """
+    def __init__(self, topdir):
+        self.topdir = topdir
+        self.dest = os.path.join(self.topdir, 'source')
+        #self.asc = os.path.join(self.dest, '.asc')
+
+    def copy_tarfile(self, path, signer=None):
+        if not os.path.isdir(self.dest):
+            os.makedirs(self.dest)
+        if signer:
+            path = signer.create_detached_signature(path)
+        try:
+            os.link(path, self.dest)
+            pass
+        except OSError:
+            pass
+        shutil.copy2(path, self.dest)
+        asc = path + '.asc'
+        if os.path.exists(asc):
+            #try:
+            #    os.link(path, self.dest)
+            #    pass
+            #except OSError:
+            #    pass
+            shutil.copy2(asc, self.dest)
+        return self.dest
 
 
 def get_rpm_headers(filename):
@@ -228,10 +262,14 @@ class GPGSigner(object):
         return dest
 
     def create_detached_signature(self, path):
+        filename = os.path.basename(path)
+        dest = os.path.join(self.__tempdir, filename)
+        shutil.copy2(path, dest)
         with self.contextmgr:
             subprocess.check_call(
                 ('gpg', '-q', '--batch', '-u', self.contextmgr.key_id,
-                 '--detach-sign', '--armor', path))
+                 '--detach-sign', '--armor', dest))
+        return dest
 
     def __remove_tempdir(self):
         if self.__tempdir:
@@ -247,6 +285,14 @@ def find_packages(path):
                 if filename.endswith('.rpm'):
                     yield os.path.join(dirpath, filename)
 
+def find_tarfiles(path):
+    if os.path.isfile(path):
+        yield path
+    else:
+        for dirpath, _, filenames in os.walk(path):
+            for filename in filenames:
+                if filename.endswith('.tar.gz'):
+                    yield os.path.join(dirpath, filename)
 
 def main():
     ## TODO:  moving, signing tarballs
@@ -268,6 +314,7 @@ def main():
                         help='skip debuginfo packages')
     args = parser.parse_args()
     distros = []
+    tarballs = []
     signer = None
     if args.sign:
         if ":" in args.sign:
@@ -278,13 +325,17 @@ def main():
         disttag, paths, arches = package_set.split(':')
         distros.append(Distro(args.dest, paths.split(','), arches.split(','),
                               disttag))
+    tarballs = Tarball(args.dest)
     path_map = {}
     for distro in distros:
         for path in args.paths:
             for package_path in find_packages(path):
                 path_map[package_path] = distro.copy_package(
                     package_path, signer)
-        distro.create_repo_md()
+            for tarfile_path in find_tarfiles(path):
+                path_map[tarfile_path] = tarballs.copy_tarfile(
+                    tarfile_path, signer)
+        distro.create_repo_md(args.verbose)
     if args.verbose:
         pprint.pprint(path_map)
 
