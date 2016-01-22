@@ -120,14 +120,11 @@ class Distro(object):
             shutil.copy2(path, dest)
         return dests
 
-    def create_repo_md(self, verbose):
+    def create_repo_md(self):
         for arch in self.arches:
             path = os.path.join(self.distpath, arch)
             if os.path.isdir(path):
-                if verbose:
-                    subprocess.check_call(('createrepo_c', '--no-database', path))
-                else:
-                    subprocess.check_call(('createrepo_c', '--no-database', '-q', path))
+                subprocess.check_call(('createrepo_c', '--no-database', path))
 
 
 class Tarball(object):
@@ -137,27 +134,25 @@ class Tarball(object):
     def __init__(self, topdir):
         self.topdir = topdir
         self.dest = os.path.join(self.topdir, 'source')
-        #self.asc = os.path.join(self.dest, '.asc')
 
     def copy_tarfile(self, path, signer=None):
+        destfile = self.dest + "/" + os.path.basename(path)
         if not os.path.isdir(self.dest):
             os.makedirs(self.dest)
         if signer:
-            path = signer.create_detached_signature(path)
+            ascpath = signer.create_detached_signature(path)
         try:
-            os.link(path, self.dest)
+            os.link(path, destfile)
             pass
         except OSError:
             pass
-        shutil.copy2(path, self.dest)
-        asc = path + '.asc'
-        if os.path.exists(asc):
-            #try:
-            #    os.link(path, self.dest)
-            #    pass
-            #except OSError:
-            #    pass
-            shutil.copy2(asc, self.dest)
+        if not os.path.isfile(destfile):
+            shutil.copy2(path, destfile)
+        if signer:
+            if not ascpath:
+                raise Exception('Error: GPG signature not created properly for file ' + path)
+            if os.path.exists(ascpath):
+                shutil.move(ascpath, self.dest)
         return self.dest
 
 
@@ -228,7 +223,6 @@ class GPGKeyIdContextManager(object):
         pass
 
 
-## TODO:  make this return the path of the .asc
 class GPGSigner(object):
     def __init__(self, contextmgr, password=''):
         self.contextmgr = contextmgr
@@ -269,7 +263,7 @@ class GPGSigner(object):
             subprocess.check_call(
                 ('gpg', '-q', '--batch', '-u', self.contextmgr.key_id,
                  '--detach-sign', '--armor', dest))
-        return dest
+        return dest + '.asc'
 
     def __remove_tempdir(self):
         if self.__tempdir:
@@ -286,16 +280,16 @@ def find_packages(path):
                     yield os.path.join(dirpath, filename)
 
 def find_tarfiles(path):
+    extensions = ['tar.gz', 'tar.bz2', 'tar.xz']
     if os.path.isfile(path):
         yield path
     else:
         for dirpath, _, filenames in os.walk(path):
             for filename in filenames:
-                if filename.endswith('.tar.gz'):
+                if filename.endswith(tuple(extensions)):
                     yield os.path.join(dirpath, filename)
 
 def main():
-    ## TODO:  moving, signing tarballs
     parser = argparse.ArgumentParser(
         description='Sort code artifacts into a directory structure')
     parser.add_argument('paths', metavar='PATH', nargs='+',
@@ -332,10 +326,11 @@ def main():
             for package_path in find_packages(path):
                 path_map[package_path] = distro.copy_package(
                     package_path, signer)
-            for tarfile_path in find_tarfiles(path):
+        distro.create_repo_md()
+    for path in args.paths:
+        for tarfile_path in find_tarfiles(path):
                 path_map[tarfile_path] = tarballs.copy_tarfile(
                     tarfile_path, signer)
-        distro.create_repo_md(args.verbose)
     if args.verbose:
         pprint.pprint(path_map)
 
