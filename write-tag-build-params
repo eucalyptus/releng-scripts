@@ -24,34 +24,38 @@ Jenkins.
 
 import argparse
 import os
+import urllib2
+
+import yaml
 
 
 PROPERTIES_FILENAME = 'tag-params.properties'
+TAG_CONFIG_FILENAME = 'tags.yml'
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-t', '--tag', required=True)
+    parser.add_argument('-t', '--tag', help=argparse.SUPPRESS)  # old, unused
     parser.add_argument('-j', '--job', default=os.getenv('JOB_NAME'))
     parser.add_argument('-b', '--build', default=os.getenv('BUILD_NUMBER'))
+    parser.add_argument('-j', '--jenkins-url',
+                        default=os.getenv('JENKINS_URL'))
     args = parser.parse_args()
-    if not args.tag:
-        parser.error('argument -t/--tag is required')
     if not args.job:
         parser.error('argument -j/--job or JOB_NAME is required')
     if not args.build:
         parser.error('argument -b/--build or BUILD_NUMBER is required')
+    if not args.jenkins_url:
+        parser.error('argument -j/--jenkins-url or JENKINS_URL is required')
 
-    if args.tag.endswith('-devel'):
-        tag = args.tag
-    elif args.tag.endswith('-security'):
-        tag = args.tag.rsplit('-', 1)[0]
-    else:
-        tag = None
-    if tag:
+    url = '{url}/userContent/{tag_map}'.format(url=args.jenkins_url,
+                                               tag_map=TAG_MAP_FILENAME)
+    tag_config = yaml.safe_load(urllib2.urlopen(url).read())
+    dest_tags = tag_config.get('dest-tags', {}).get(args.job, [])
+    if dest_tags:
         with open(PROPERTIES_FILENAME, 'w') as propfile:
             propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
-                           .format(tag=tag, job=args.job,
+                           .format(tag=','.join(dest_tags), job=args.job,
                                    build=args.build))
 
 
