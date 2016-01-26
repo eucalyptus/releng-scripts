@@ -38,6 +38,7 @@ def main():
     parser.add_argument('-t', '--tag', help=argparse.SUPPRESS)  # old, unused
     parser.add_argument('-j', '--job', default=os.getenv('JOB_NAME'))
     parser.add_argument('-b', '--build', default=os.getenv('BUILD_NUMBER'))
+    parser.add_argument('-q', '--quiet', action='store_true')
     parser.add_argument('--jenkins-url',
                         default=os.getenv('JENKINS_URL'))
     args = parser.parse_args()
@@ -57,6 +58,11 @@ def main():
             propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
                            .format(tag=','.join(dest_tags), job=args.job,
                                    build=args.build))
+        if not args.quiet:
+            print 'adding build to tags', ','.join(dest_tags)
+    else:
+        if not args.quiet:
+            print 'no tags to apply to build'
 
 
 if __name__ == '__main__':
