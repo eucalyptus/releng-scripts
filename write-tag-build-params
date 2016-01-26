@@ -50,7 +50,7 @@ def main():
         parser.error('argument --jenkins-url or JENKINS_URL is required')
 
     url = '{url}/userContent/{tag_map}'.format(url=args.jenkins_url,
-                                               tag_map=TAG_MAP_FILENAME)
+                                               tag_map=TAG_CONFIG_FILENAME)
     tag_config = yaml.safe_load(urllib2.urlopen(url).read())
     dest_tags = tag_config.get('dest-tags', {}).get(args.job, [])
     if dest_tags:
