@@ -38,7 +38,7 @@ def main():
     parser.add_argument('-t', '--tag', help=argparse.SUPPRESS)  # old, unused
     parser.add_argument('-j', '--job', default=os.getenv('JOB_NAME'))
     parser.add_argument('-b', '--build', default=os.getenv('BUILD_NUMBER'))
-    parser.add_argument('-j', '--jenkins-url',
+    parser.add_argument('--jenkins-url',
                         default=os.getenv('JENKINS_URL'))
     args = parser.parse_args()
     if not args.job:
@@ -46,7 +46,7 @@ def main():
     if not args.build:
         parser.error('argument -b/--build or BUILD_NUMBER is required')
     if not args.jenkins_url:
-        parser.error('argument -j/--jenkins-url or JENKINS_URL is required')
+        parser.error('argument --jenkins-url or JENKINS_URL is required')
 
     url = '{url}/userContent/{tag_map}'.format(url=args.jenkins_url,
                                                tag_map=TAG_MAP_FILENAME)
