@@ -31,7 +31,8 @@ class Distro(object):
     """
     A representation of a distribution that uses rpm packages
     """
-    def __init__(self, topdir, distpaths, arches, disttag, skip_debuginfo=True):
+    def __init__(self, topdir, distpaths, arches, disttag,
+                 skip_debuginfo=True):
         self.topdir = topdir
         self.distpaths = distpaths
         self.arches = arches
@@ -84,8 +85,8 @@ class Distro(object):
                     dests.append(os.path.join(archpath,
                                               os.path.basename(path)))
             elif headers[rpm.RPMTAG_ARCH] in (arch, 'noarch'):
-                    dests.append(os.path.join(archpath,
-                                              os.path.basename(path)))
+                dests.append(os.path.join(archpath,
+                                          os.path.basename(path)))
         return dests
 
     def copy_package(self, path, signer=None):
@@ -142,14 +143,15 @@ class Tarball(object):
             ascpath = signer.create_detached_signature(path)
         try:
             os.link(path, destfile)
-            pass
         except OSError:
             pass
         if not os.path.isfile(destfile):
             shutil.copy2(path, destfile)
         if signer:
             if not ascpath:
-                raise Exception('Error: GPG signature not created properly for file ' + path)
+                raise Exception(
+                    'GPG signature not created properly for file {0}'
+                    .format(path))
             if os.path.exists(ascpath):
                 shutil.move(ascpath, self.dest)
         return self.dest
@@ -202,7 +204,7 @@ class GPGKeyFileContextManager(object):
             self.__tempdir = None
         if self.__previous_gnupghome:
             os.environ['GNUPGHOME'] = self.__previous_gnupghome
-            self.__previous_gnupghome
+            self.__previous_gnupghome = None
         else:
             del os.environ['GNUPGHOME']
 
@@ -235,13 +237,13 @@ class GPGSigner(object):
         shutil.copy2(path, dest)
         with self.contextmgr:
             args = ['--resign', '-D',
-                   '_gpg_name {0}'.format(self.contextmgr.key_id), dest]
+                    '_gpg_name {0}'.format(self.contextmgr.key_id), dest]
             try:
                 child = pexpect.spawn('rpmsign', args)
                 child.expect('Enter pass phrase: ')
                 child.sendline(self.password)
-                answer = child.expect(['Pass phrase is good\.',
-                                   'Pass phrase check failed'])
+                answer = child.expect([r'Pass phrase is good\.',
+                                       'Pass phrase check failed'])
                 child.expect(pexpect.EOF)
                 child.close()
             except pexpect.ExceptionPexpect as exc:
@@ -278,6 +280,7 @@ def find_packages(path):
                 if filename.endswith('.rpm'):
                     yield os.path.join(dirpath, filename)
 
+
 def find_tarfiles(path):
     extensions = ['tar.gz', 'tar.bz2', 'tar.xz']
     if os.path.isfile(path):
@@ -287,6 +290,7 @@ def find_tarfiles(path):
             for filename in filenames:
                 if filename.endswith(tuple(extensions)):
                     yield os.path.join(dirpath, filename)
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -328,8 +332,8 @@ def main():
         distro.create_repo_md()
     for path in args.paths:
         for tarfile_path in find_tarfiles(path):
-                path_map[tarfile_path] = tarballs.copy_tarfile(
-                    tarfile_path, signer)
+            path_map[tarfile_path] = tarballs.copy_tarfile(tarfile_path,
+                                                           signer)
     if args.verbose:
         pprint.pprint(path_map)
 
