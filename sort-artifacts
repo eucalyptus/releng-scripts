@@ -84,8 +84,8 @@ class Distro(object):
                 if arch == 'source':
                     dests.append(os.path.join(archpath,
                                               os.path.basename(path)))
-            elif headers[rpm.RPMTAG_ARCH] in (arch, 'noarch'):
-                dests.append(os.path.join(archpath,
+                elif headers[rpm.RPMTAG_ARCH] in (arch, 'noarch'):
+                    dests.append(os.path.join(archpath,
                                           os.path.basename(path)))
         return dests
 
