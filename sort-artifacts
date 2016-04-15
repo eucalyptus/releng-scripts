@@ -84,9 +84,10 @@ class Distro(object):
                 if arch == 'source':
                     dests.append(os.path.join(archpath,
                                               os.path.basename(path)))
-            elif arch != 'source' and headers[rpm.RPMTAG_ARCH] in (arch, 'noarch'):
+            elif (headers[rpm.RPMTAG_ARCH] in (arch, 'noarch') and
+                  arch != 'source'):
                 dests.append(os.path.join(archpath,
-                                    os.path.basename(path)))
+                                          os.path.basename(path)))
         return dests
 
     def copy_package(self, path, signer=None):
