@@ -79,10 +79,10 @@ CONTRIBUTING & BUGS
 -------------------
 
 This project's source code can be found on GitHub at
-http://github.com/eucalyptus/prune-rpm-repo/.  To obtain a copy of the
+http://github.com/eucalyptus/releng-scripts/prune-rpm-repo.  To obtain a copy of the
 source code use the following command:
 
-    git clone git://github.com/eucalyptus/prune-rpm-repo
+    git clone git://github.com/eucalyptus/releng-scripts
 
 You can also file bugs or pull requests for the project on GitHub.
 Please note that by submitting code to this project, you agree that code
