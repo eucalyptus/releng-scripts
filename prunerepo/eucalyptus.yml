@@ -10,6 +10,9 @@ preserve:
   - pattern: euca2ools
     min-versions: 10
     min-days: 30
+  - pattern: py
+    min-versions: 3
+    min-days: 30
   - pattern: .*
     min-versions: 1
     min-days: 90
