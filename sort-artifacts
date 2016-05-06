@@ -125,8 +125,9 @@ class Distro(object):
         for arch in self.arches:
             path = os.path.join(self.distpath, arch)
             if os.path.isdir(path):
-                subprocess.check_call(('createrepo_c', '--update',
-                                       '--no-database', path))
+                subprocess.check_call((
+                    'createrepo_c', '--update', '--no-database',
+                    '--retain-old-md-by-age', '6h', path))
 
 
 class Tarball(object):
