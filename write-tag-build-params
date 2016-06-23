@@ -30,7 +30,7 @@ import yaml
 
 
 PROPERTIES_FILENAME = 'tag-params.properties'
-TAG_CONFIG_FILENAME = 'tags.yml'
+JOBS_CONFIG_FILENAME = 'jobs.yml'
 
 
 def main():
@@ -50,14 +50,22 @@ def main():
         parser.error('argument --jenkins-url or JENKINS_URL is required')
 
     url = '{url}/userContent/{tag_map}'.format(url=args.jenkins_url,
-                                               tag_map=TAG_CONFIG_FILENAME)
-    tag_config = yaml.safe_load(urllib2.urlopen(url).read())
-    dest_tags = tag_config.get('dest-tags', {}).get(args.job, [])
-    if dest_tags:
+                                               tag_map=JOBS_CONFIG_FILENAME)
+    job_config = yaml.safe_load(urllib2.urlopen(url).read())
+    job_tags = job_config.get('jobs', {}).get(args.job, [])
+    dest_tags = job_tags['dest-tags']
+    promotion_tags = job_tags['promotion-tags']
+    nightly_tags = promotion_tags['Nightly']
+    final_tags = promotion_tags['Final']
+
+    if dest_tags or promotion_tags:
         with open(PROPERTIES_FILENAME, 'w') as propfile:
             propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
                            .format(tag=','.join(dest_tags), job=args.job,
                                    build=args.build))
+            propfile.write('promote-nightly = {tag}\n'.format(tag=','.join(nightly_tags)))
+            propfile.write('promote-final = {tag}\n'.format(tag=','.join(final_tags)))
+
         if not args.quiet:
             print 'adding build to tags', ','.join(dest_tags)
     else:
