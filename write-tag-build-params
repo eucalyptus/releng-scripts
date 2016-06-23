@@ -56,7 +56,7 @@ def main():
     dest_tags = job_tags['dest-tags']
     promotion_tags = job_tags['promotion-tags']
     nightly_tags = promotion_tags['Nightly']
-    if promotion_tags['Final']:
+    if 'Final' in promotion_tags.keys():
         final_tags = promotion_tags['Final']
 
     if dest_tags or promotion_tags:
@@ -65,7 +65,7 @@ def main():
                            .format(tag=','.join(dest_tags), job=args.job,
                                    build=args.build))
             propfile.write('nightly = {tag}\n'.format(tag=','.join(nightly_tags)))
-            if promotion_tags['Final']:
+            if 'Final' in promotion_tags.keys():
                 propfile.write('final = {tag}\n'.format(tag=','.join(final_tags)))
 
         if not args.quiet:
