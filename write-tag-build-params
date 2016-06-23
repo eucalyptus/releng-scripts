@@ -63,8 +63,8 @@ def main():
             propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
                            .format(tag=','.join(dest_tags), job=args.job,
                                    build=args.build))
-            propfile.write('promote-nightly = {tag}\n'.format(tag=','.join(nightly_tags)))
-            propfile.write('promote-final = {tag}\n'.format(tag=','.join(final_tags)))
+            propfile.write('nightly = {tag}\n'.format(tag=','.join(nightly_tags)))
+            propfile.write('final = {tag}\n'.format(tag=','.join(final_tags)))
 
         if not args.quiet:
             print 'adding build to tags', ','.join(dest_tags)
