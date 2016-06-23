@@ -56,7 +56,8 @@ def main():
     dest_tags = job_tags['dest-tags']
     promotion_tags = job_tags['promotion-tags']
     nightly_tags = promotion_tags['Nightly']
-    final_tags = promotion_tags['Final']
+    if promotion_tags['Final']:
+        final_tags = promotion_tags['Final']
 
     if dest_tags or promotion_tags:
         with open(PROPERTIES_FILENAME, 'w') as propfile:
@@ -64,7 +65,8 @@ def main():
                            .format(tag=','.join(dest_tags), job=args.job,
                                    build=args.build))
             propfile.write('nightly = {tag}\n'.format(tag=','.join(nightly_tags)))
-            propfile.write('final = {tag}\n'.format(tag=','.join(final_tags)))
+            if promotion_tags['Final']:
+                propfile.write('final = {tag}\n'.format(tag=','.join(final_tags)))
 
         if not args.quiet:
             print 'adding build to tags', ','.join(dest_tags)
