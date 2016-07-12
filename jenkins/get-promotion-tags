@@ -14,57 +14,54 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-"""
-Write a .properties file containing parameters for p2-tag-build.
 
-This requires the JOB_NAME and BUILD_NUMBER environment variables from
-Jenkins.
 """
+Used in Jenkins promotion jobs to get tags from jobs.yml and
+   then call sort_artifacts to place artifacts in the correct
+    location on the staging server.
 
+This requires the JOB_NAME, PROMOTED_JOB_NAME and JENKINS_URL
+   environment variables from Jenkins.
+"""
 
 import argparse
 import os
 import urllib2
-
 import yaml
 
-
-PROPERTIES_FILENAME = 'tag-params.properties'
 JOBS_CONFIG_FILENAME = 'jobs.yml'
+
+
+def get_promoted_job_name():
+    return os.getenv('PROMOTED_JOB_NAME')
+
+
+def get_promotion_name(args):
+    if args.job:
+        return args.job.rsplit('/', 1)[-1]
+    else:
+        return os.getenv('JOB_NAME', '').rsplit('/', 1)[-1]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('-t', '--tag', help=argparse.SUPPRESS)  # old, unused
-    parser.add_argument('-j', '--job', default=os.getenv('JOB_NAME'))
-    parser.add_argument('-b', '--build', default=os.getenv('BUILD_NUMBER'))
+    parser.add_argument('-j', '--job')
     parser.add_argument('-q', '--quiet', action='store_true')
     parser.add_argument('--jenkins-url',
                         default=os.getenv('JENKINS_URL'))
     args = parser.parse_args()
-    if not args.job:
+    if not args.job and not os.getenv('JOB_NAME'):
         parser.error('argument -j/--job or JOB_NAME is required')
-    if not args.build:
-        parser.error('argument -b/--build or BUILD_NUMBER is required')
     if not args.jenkins_url:
         parser.error('argument --jenkins-url or JENKINS_URL is required')
 
     url = '{url}/userContent/{tag_map}'.format(url=args.jenkins_url,
                                                tag_map=JOBS_CONFIG_FILENAME)
+    promotion = get_promotion_name(args)
+    jobname = get_promoted_job_name()
     job_config = yaml.safe_load(urllib2.urlopen(url).read())
-    job_tags = job_config.get('jobs', {}).get(args.job, [])
-    dest_tags = job_tags['dest-tags']
-
-    if dest_tags:
-        with open(PROPERTIES_FILENAME, 'w') as propfile:
-            propfile.write('tag = {tag}\njob = {job}\nbuild = {build}\n'
-                           .format(tag=','.join(dest_tags), job=args.job,
-                                   build=args.build))
-        if not args.quiet:
-            print 'adding build to tags', ','.join(dest_tags)
-    else:
-        if not args.quiet:
-            print 'no tags to apply to build'
+    tags = job_config.get('jobs').get(jobname, {}).get('promotion-tags', {}).get(promotion, [])
+    print "{sep}".format(sep=' '.join(tags))
 
 
 if __name__ == '__main__':
