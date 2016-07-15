@@ -23,14 +23,14 @@ Jenkins.
 
 
 import argparse
-import os
-import urllib2
-
-import yaml
+import os.path
+import subprocess
+import sys
 
 
 PROPERTIES_FILENAME = 'tag-params.properties'
-JOBS_CONFIG_FILENAME = 'jobs.yml'
+GET_JOB_INFO = os.path.join(os.path.dirname(sys.argv[0]), 'jenkins',
+                              'get-job-info')
 
 
 def main():
@@ -49,11 +49,9 @@ def main():
     if not args.jenkins_url:
         parser.error('argument --jenkins-url or JENKINS_URL is required')
 
-    url = '{url}/userContent/{tag_map}'.format(url=args.jenkins_url,
-                                               tag_map=JOBS_CONFIG_FILENAME)
-    job_config = yaml.safe_load(urllib2.urlopen(url).read())
-    job_tags = job_config.get('jobs', {}).get(args.job, [])
-    dest_tags = job_tags['dest-tags']
+    dest_tags = subprocess.check_output(
+        (GET_JOB_INFO, '-j', args.job, '-u', args.jenkins_url, 'dest-tags'))
+    dest_tags = [tag for tag in dest_tags.splitlines() if tag]
 
     if dest_tags:
         with open(PROPERTIES_FILENAME, 'w') as propfile:

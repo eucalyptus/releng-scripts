@@ -1,0 +1,90 @@
+#!/usr/bin/python -tt
+#
+# (c) Copyright 2016 Hewlett Packard Enterprise Development Company LP
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+
+import argparse
+import os
+import urllib2
+import yaml
+
+JOBS_CONFIG_FILENAME = 'jobs.yml'
+
+
+def get_build_targets(args, job_config):
+    target = job_config.get('jobs', {}).get(args.job, {}).get('build-target')
+    if not target:
+        raise KeyError('job {0} has no build-target defined')
+    return [target]
+
+
+def get_dest_tags(args, job_config):
+    return job_config.get('jobs', {}).get(args.job, {}).get('dest-tags', [])
+
+
+def get_promotion_tags(args, job_config):
+    promotion = args.job.rsplit('/', 1)[-1]
+    jobname = args.promoted_job_name
+    return (job_config
+            .get('jobs')
+            .get(jobname, {})
+            .get('promotion-tags', {})
+            .get(promotion, []))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('-j', '--job', default=os.getenv('JOB_NAME'))
+    parser.add_argument('-q', '--quiet', action='store_true')
+    parser.add_argument('-u', '--jenkins-url', metavar='URL',
+                        default=os.getenv('JENKINS_URL'))
+    parser.add_argument('-o', '--output-format', metavar='FORMAT',
+                        default='list',
+                        help=('output format ("list", "properties", or '
+                              '"properties:KEYNAME")'))
+    subparsers = parser.add_subparsers(dest='action')
+    subparser = subparsers.add_parser('build-target')
+    subparser.set_defaults(func=get_build_targets)
+    subparser = subparsers.add_parser('dest-tags')
+    subparser.set_defaults(func=get_dest_tags)
+    subparser = subparsers.add_parser('promotion-tags')
+    subparser.set_defaults(func=get_promotion_tags)
+    subparser.add_argument('--promoted-job-name',
+                           default=os.getenv('PROMOTED_JOB_NAME'))
+    args = parser.parse_args()
+
+    if not args.job and not os.getenv('JOB_NAME'):
+        parser.error('argument -j/--job or JOB_NAME is required')
+    if not args.jenkins_url:
+        parser.error('argument --jenkins-url or JENKINS_URL is required')
+
+    url = '{url}/userContent/{tag_map}'.format(url=args.jenkins_url,
+                                               tag_map=JOBS_CONFIG_FILENAME)
+    job_config = yaml.safe_load(urllib2.urlopen(url).read())
+    result = args.func(args, job_config)
+    if args.output_format.startswith('properties'):
+        if ':' in args.output_format:
+            key = args.output_format.split(':', 1)[1]
+        else:
+            key = args.action.replace('-', '_')
+        if result:
+            print '{0} = {1}'.format(key, ','.join(result))
+    else:
+        for thing in result:
+            print thing
+
+
+if __name__ == '__main__':
+    main()
