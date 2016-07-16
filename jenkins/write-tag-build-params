@@ -29,8 +29,8 @@ import sys
 
 
 PROPERTIES_FILENAME = 'tag-params.properties'
-GET_JOB_INFO = os.path.join(os.path.dirname(sys.argv[0]), 'jenkins',
-                              'get-job-info')
+GET_JOB_INFO = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])),
+                            'get-job-info')
 
 
 def main():
