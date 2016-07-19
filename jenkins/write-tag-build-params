@@ -33,6 +33,22 @@ GET_JOB_INFO = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])),
                             'get-job-info')
 
 
+if 'check_output' not in subprocess.__dict__:
+    def check_output(*popenargs, **kwargs):
+        process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs,
+                                   **kwargs)
+        output, unused_err = process.communicate()
+        retcode = process.poll()
+        if retcode:
+            cmd = kwargs.get("args")
+            if cmd is None:
+                cmd = popenargs[0]
+            raise subprocess.CalledProcessError(retcode, cmd, output=output)
+        return output
+    subprocess.check_output = check_output
+    del check_output
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-t', '--tag', help=argparse.SUPPRESS)  # old, unused
