@@ -17,6 +17,7 @@
 
 import argparse
 import os
+import sys
 import urllib2
 import yaml
 
@@ -24,9 +25,14 @@ JOBS_CONFIG_FILENAME = 'jobs.yml'
 
 
 def get_build_targets(args, job_config):
-    target = job_config.get('jobs', {}).get(args.job, {}).get('build-target')
+    job = job_config.get('jobs', {}).get(args.job, {})
+    if not job and args.job.endswith('-custom') and os.getenv('series'):
+        new_job_name = args.job.replace('custom', os.getenv('series'))
+        print >> sys.stderr, 'using config for job {0}'.format(new_job_name)
+        job = job_config.get('jobs', {}).get(new_job_name, {})
+    target = job.get('build-target')
     if not target:
-        raise KeyError('job {0} has no build-target defined')
+        raise KeyError('job {0} has no build-target defined'.format(args.job))
     return [target]
 
 
