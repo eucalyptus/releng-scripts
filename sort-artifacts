@@ -285,7 +285,8 @@ def find_packages(path):
 
 
 def find_tarfiles(path):
-    extensions = ['tar.gz', 'tar.bz2', 'tar.xz']
+    extensions = ['tar.gz', 'tar.gz.asc', 'tar.bz2', 'tar.bz2.asc',
+                  'tar.xz', 'tar.xz.asc']
     if os.path.isfile(path) and any(path.endswith(ext) for ext in extensions):
         yield path
     else:
