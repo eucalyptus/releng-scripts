@@ -156,6 +156,7 @@ class Tarball(object):
                     'GPG signature not created properly for file {0}'
                     .format(path))
             if os.path.exists(ascpath):
+                os.chmod(ascpath, 0o644)
                 shutil.move(ascpath, self.dest)
         return self.dest
 
